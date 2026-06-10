@@ -2,22 +2,25 @@ import sqlite3
 from contextlib import contextmanager
 import bcrypt
 
+# Database file. SQLite saves everything in one file.
 DB_NAME = "./instance/nextepisode.db"
 
+# Handles opening and closing the database connection.
+# Using a context manager makes sure the connection always closes properly even if something goes wrong.
 @contextmanager
 def db_session(db_name):
     conn = sqlite3.connect(db_name)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = sqlite3.Row  # 
     try:
-        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA foreign_keys = ON;")  
         yield conn
-        conn.commit()
+        conn.commit()  # saves all changes to the database
     except sqlite3.Error as e:
-        conn.rollback()
+        conn.rollback()  # if something went wrong, undo the changes
         print(f"Database error: {e}")
         raise
     finally:
-        conn.close()
+        conn.close()  # always close the connection when done
 
 
 def init_db():
@@ -45,8 +48,6 @@ def init_db():
                 UNIQUE(user_id, show_id)
             );
         """)
-    # Migrate existing databases that don't have image_url column yet.
-    # Check first so we don't trigger a noisy "duplicate column" error message.
     with sqlite3.connect(DB_NAME) as conn:
         cols = [row[1] for row in conn.execute("PRAGMA table_info(watchlist)")]
         if "image_url" not in cols:
@@ -54,8 +55,9 @@ def init_db():
             conn.commit()
 
 
+# Creates a new user account. Passwords are hashed with bcrypt
+# Returns True if the account was created, False if the username is already taken.
 def create_user(username, password):
-    """Returns True on success, False if username taken."""
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
     try:
         with db_session(DB_NAME) as conn:
@@ -65,9 +67,11 @@ def create_user(username, password):
             )
         return True
     except sqlite3.IntegrityError:
-        return False
+        return False  # username already exists
 
 
+# Looks up a user by username and returns their info as a dictionary.
+# Returns None if no user was found.
 def get_user(username):
     with db_session(DB_NAME) as conn:
         row = conn.execute(
@@ -76,18 +80,21 @@ def get_user(username):
         return dict(row) if row else None
 
 
+# Checks if password matches the stored hashed password.
+# bcrypt handles the comparison.
 def check_password(plain, hashed):
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
+# Adds a show to a user's watchlist.
+# If the same user tries to add the same show twice, it returns False to prevent duplicates.
 def add_show(user_id, show_id, title, release_year, total_episodes,
              status="watchlist", image_url=None,
              watched_episodes=0, rating=None):
-    """Returns True on success, False if duplicate."""
     valid = {"watchlist", "watching", "completed"}
     if status not in valid:
         status = "watchlist"
-    # If added as completed, auto-fill all episodes
+    # If someone adds a show as completed, automatically fill in all episodes
     if status == "completed":
         watched_episodes = total_episodes
     try:
@@ -102,9 +109,10 @@ def add_show(user_id, show_id, title, release_year, total_episodes,
             )
         return True
     except sqlite3.IntegrityError:
-        return False
+        return False  # show already in this user's list
 
 
+# Gets all shows for a user. The sort lets us order by date, title, or rating.
 def get_watchlist(user_id, sort="date"):
     sort_map = {
         "alpha":  "title ASC",
@@ -120,6 +128,7 @@ def get_watchlist(user_id, sort="date"):
         return [dict(r) for r in rows]
 
 
+# Updates how many episodes a user has watched.
 def update_progress(user_id, show_id, watched):
     with db_session(DB_NAME) as conn:
         row = conn.execute(
@@ -129,6 +138,7 @@ def update_progress(user_id, show_id, watched):
         if not row:
             return False, "Show not found"
         total = row["total_episodes"]
+        # Validate the input before saving
         if watched < 0:
             return False, "Episodes cannot be negative"
         if watched > total:
@@ -142,14 +152,15 @@ def update_progress(user_id, show_id, watched):
         return True, new_status
 
 
+# Changes the status of a show (watchlist, watching, completed).
+# If marked as completed, it automatically sets watched episodes to the total.
 def update_status(user_id, show_id, status):
-    """When marked completed, auto-fill all episodes. When moved back, don't reset progress."""
     valid = {"watchlist", "watching", "completed"}
     if status not in valid:
         return False
     with db_session(DB_NAME) as conn:
         if status == "completed":
-            # Auto-fill watched_episodes = total_episodes
+            # Auto-fill episodes so progress shows 100%
             conn.execute(
                 """UPDATE watchlist
                    SET status=?, watched_episodes=total_episodes
@@ -164,6 +175,7 @@ def update_status(user_id, show_id, status):
     return True
 
 
+# Saves a rating for a show. Only accepts values between 1-5 in 0.5 increments.
 def update_rating(user_id, show_id, rating):
     if rating is not None and (rating < 1 or rating > 5):
         return False, "Rating must be between 1 and 5"
@@ -177,6 +189,7 @@ def update_rating(user_id, show_id, rating):
     return True, "OK"
 
 
+# Removes a show from the user's list entirely.
 def remove_show(user_id, show_id):
     with db_session(DB_NAME) as conn:
         conn.execute(
@@ -185,22 +198,22 @@ def remove_show(user_id, show_id):
         )
 
 
+# Gathers all the stats for the profile page like how many shows are completed, average rating, top rated shows, etc.
 def get_user_stats(user_id):
-    """Returns stats for the profile page."""
     with db_session(DB_NAME) as conn:
         rows = conn.execute(
             "SELECT * FROM watchlist WHERE user_id=?", (user_id,)
         ).fetchall()
     shows = [dict(r) for r in rows]
 
-    total        = len(shows)
-    watching     = sum(1 for s in shows if s["status"] == "watching")
-    completed    = sum(1 for s in shows if s["status"] == "completed")
-    watchlist    = sum(1 for s in shows if s["status"] == "watchlist")
-    eps_watched  = sum(s["watched_episodes"] for s in shows)
-    rated        = [s["rating"] for s in shows if s["rating"] is not None]
-    avg_rating   = round(sum(rated) / len(rated), 1) if rated else None
-    top_rated    = sorted(
+    total       = len(shows)
+    watching    = sum(1 for s in shows if s["status"] == "watching")
+    completed   = sum(1 for s in shows if s["status"] == "completed")
+    watchlist   = sum(1 for s in shows if s["status"] == "watchlist")
+    eps_watched = sum(s["watched_episodes"] for s in shows)
+    rated       = [s["rating"] for s in shows if s["rating"] is not None]
+    avg_rating  = round(sum(rated) / len(rated), 1) if rated else None
+    top_rated   = sorted(
         [s for s in shows if s["rating"] is not None],
         key=lambda x: x["rating"], reverse=True
     )[:3]
