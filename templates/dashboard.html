@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}My List – Next Episode{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h2 style="font-weight:800; margin-bottom:.1rem; color:var(--text);">My List</h2>
+    <p class="text-muted" style="font-size:.88rem; margin:0;">Hey, {{ session.username }}! 👋</p>
+  </div>
+  <a href="{{ url_for('search') }}" class="btn btn-primary px-4">
+    <i class="bi bi-plus-lg me-2"></i>Add Show
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-4">
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--blue);">{{ count_watching }}</div>
+      <div class="text-muted mt-1" style="font-size:.75rem; font-weight:700; letter-spacing:.6px;">WATCHING</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--green);">{{ count_completed }}</div>
+      <div class="text-muted mt-1" style="font-size:.75rem; font-weight:700; letter-spacing:.6px;">COMPLETED</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--muted);">{{ count_watchlist }}</div>
+      <div class="text-muted mt-1" style="font-size:.75rem; font-weight:700; letter-spacing:.6px;">WATCHLIST</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter + Sort -->
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  {% for f, label, icon in [('all','All','grid-fill'), ('watching','Watching','play-circle-fill'), ('completed','Completed','check-circle-fill'), ('watchlist','Watchlist','bookmark-fill')] %}
+  <a href="{{ url_for('dashboard', sort=sort, filter=f) }}" class="btn-filter {% if filter_status == f %}active{% endif %}">
+    <i class="bi bi-{{ icon }} me-1"></i>{{ label }}
+  </a>
+  {% endfor %}
+
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <span class="text-muted" style="font-size:.78rem; font-weight:600;">SORT:</span>
+    {% for s, label in [('date','Recent'), ('alpha','A–Z'), ('rating','Rating')] %}
+    <a href="{{ url_for('dashboard', sort=s, filter=filter_status) }}"
+       class="btn-filter {% if sort == s %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Show list -->
+{% if shows %}
+<div class="d-flex flex-column gap-2 mt-3">
+  {% for show in shows %}
+  <div class="show-row">
+    <div class="d-flex align-items-start gap-3">
+
+      <!-- Poster -->
+      {% if show.image_url %}
+        <img src="{{ show.image_url }}" alt="{{ show.title }}" class="show-poster">
+      {% else %}
+        <div class="poster-placeholder"><i class="bi bi-tv"></i></div>
+      {% endif %}
+
+      <!-- Main content -->
+      <div class="flex-grow-1 min-w-0">
+
+        <!-- Title row -->
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+          <span style="font-weight:700; font-size:1rem; color:var(--text);">{{ show.title }}</span>
+          <span class="badge-status badge-{{ show.status }}">
+            {% if show.status == 'watching' %}▶ Watching
+            {% elif show.status == 'completed' %}✓ Completed
+            {% else %}🔖 Watchlist{% endif %}
+          </span>
+          {% if show.release_year %}
+            <span class="text-muted" style="font-size:.78rem;">{{ show.release_year }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Progress -->
+        <div class="d-flex align-items-center gap-2 mb-2" style="max-width:320px;">
+          <div class="progress flex-grow-1">
+            <div class="progress-bar {% if show.percent == 100 %}complete{% endif %}"
+                 style="width:{{ show.percent }}%;"></div>
+          </div>
+          <span class="text-muted" style="font-size:.76rem; white-space:nowrap;">
+            {{ show.watched_episodes }}/{{ show.total_episodes }} · {{ show.percent }}%
+          </span>
+        </div>
+
+        <!-- Star rating display -->
+        {% if show.rating %}
+        <div style="font-size:.82rem; margin-bottom:.6rem;">
+          {% set full = show.rating | int %}
+          {% set half = (show.rating % 1) > 0 %}
+          {% for i in range(full) %}<span class="star-filled">★</span>{% endfor %}
+          {% if half %}<span class="star-filled" style="opacity:.7;">½</span>{% endif %}
+          {% for i in range(5 - full - (1 if half else 0)) %}<span class="star-empty">★</span>{% endfor %}
+          <span class="text-muted ms-1" style="font-size:.78rem;">{{ show.rating }}/5</span>
+        </div>
+        {% endif %}
+
+        <!-- Action row -->
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+
+          <!-- Episode update -->
+          <form action="{{ url_for('update_progress_route', show_id=show.show_id) }}" method="POST"
+                class="d-flex gap-1 align-items-center">
+            <input type="number" name="watched" class="form-control form-control-sm"
+                   value="{{ show.watched_episodes }}" min="0" max="{{ show.total_episodes }}"
+                   style="width:65px; height:30px; font-size:.82rem;">
+            <span class="text-muted" style="font-size:.76rem;">/ {{ show.total_episodes }}</span>
+            <button class="btn btn-outline-primary btn-sm py-0 px-2" style="height:30px; font-size:.8rem;">
+              Update
+            </button>
+          </form>
+
+          <!-- Status dropdown -->
+          <form action="{{ url_for('update_status_route', show_id=show.show_id) }}" method="POST">
+            <select name="status" class="form-select form-select-sm"
+                    style="height:30px; font-size:.82rem; width:140px;"
+                    onchange="this.form.submit()">
+              <option value="watchlist" {% if show.status=='watchlist' %}selected{% endif %}>🔖 Watchlist</option>
+              <option value="watching"  {% if show.status=='watching'  %}selected{% endif %}>▶ Watching</option>
+              <option value="completed" {% if show.status=='completed' %}selected{% endif %}>✓ Completed</option>
+            </select>
+          </form>
+
+          <!-- Rating -->
+          <form action="{{ url_for('update_rating_route', show_id=show.show_id) }}" method="POST"
+                class="d-flex gap-1 align-items-center">
+            <input type="number" name="rating" class="form-control form-control-sm"
+                   placeholder="Rate 1–5" min="1" max="5" step="0.5"
+                   value="{{ show.rating or '' }}"
+                   style="width:90px; height:30px; font-size:.82rem;">
+            <button class="btn btn-outline-primary btn-sm py-0 px-2" style="height:30px; font-size:.8rem;">
+              <i class="bi bi-star-fill"></i>
+            </button>
+          </form>
+
+          <!-- Remove -->
+          <form action="{{ url_for('remove_show_route', show_id=show.show_id) }}" method="POST"
+                class="ms-auto"
+                onsubmit="return confirm('Remove {{ show.title }} from your list?')">
+            <button class="btn btn-sm py-0 px-2"
+                    style="height:30px; color:var(--red); border:1px solid #fecaca;
+                           border-radius:7px; background:#fef2f2;">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="text-center py-5 mt-3">
+  <div style="font-size:3.5rem; margin-bottom:1rem; opacity:.3; color:var(--blue);">
+    <i class="bi bi-tv"></i>
+  </div>
+  <p class="text-muted" style="font-size:.95rem;">
+    {% if filter_status == 'all' %}
+      Your list is empty — <a href="{{ url_for('search') }}">search for a show</a> to get started!
+    {% else %}
+      No shows in this category yet.
+    {% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}

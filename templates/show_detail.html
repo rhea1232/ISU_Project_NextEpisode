@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ show.title }} – Next Episode{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('search') }}" class="btn btn-outline-primary btn-sm mb-4">
+  <i class="bi bi-arrow-left me-1"></i>Back to Search
+</a>
+
+<div class="card" style="overflow:hidden;">
+  <div class="card-body p-4">
+    <div class="d-flex gap-4 align-items-start flex-wrap">
+
+      <!-- Poster -->
+      {% if show.image %}
+        <img src="{{ show.image }}" alt="{{ show.title }}"
+             style="width:160px; border-radius:10px; object-fit:cover; flex-shrink:0; border:1px solid var(--border);">
+      {% else %}
+        <div style="width:160px; height:220px; background:var(--blue-light); border-radius:10px;
+                    display:flex; align-items:center; justify-content:center; font-size:3rem;
+                    color:var(--blue-mid); flex-shrink:0; border:1px solid var(--border);">
+          <i class="bi bi-tv"></i>
+        </div>
+      {% endif %}
+
+      <!-- Info + add form -->
+      <div class="flex-grow-1">
+        <h2 style="font-weight:800; color:var(--text); margin-bottom:.3rem;">{{ show.title }}</h2>
+        <div class="d-flex gap-3 text-muted mb-3 flex-wrap" style="font-size:.88rem;">
+          {% if show.year != 'N/A' %}
+            <span><i class="bi bi-calendar3 me-1"></i>{{ show.year }}</span>
+          {% endif %}
+          {% if show.network != 'N/A' %}
+            <span><i class="bi bi-broadcast me-1"></i>{{ show.network }}</span>
+          {% endif %}
+          <span><i class="bi bi-film me-1"></i>{{ show.total }} episodes</span>
+        </div>
+
+        {% if show.summary %}
+          <p style="color:var(--muted); font-size:.87rem; line-height:1.65; max-width:520px; margin-bottom:1.5rem;">
+            {{ show.summary }}
+          </p>
+        {% endif %}
+
+        <form action="{{ url_for('add_show_route', show_id=show.id) }}" method="POST">
+          <input type="hidden" name="title"     value="{{ show.title }}">
+          <input type="hidden" name="year"      value="{{ show.year }}">
+          <input type="hidden" name="total"     value="{{ show.total }}">
+          <input type="hidden" name="image_url" value="{{ show.image }}">
+
+          <!-- Category picker -->
+          <div class="section-label mb-2">ADD TO</div>
+          <div class="d-flex gap-2 flex-wrap mb-4">
+            <label class="category-pill">
+              <input type="radio" name="status" value="watchlist" checked style="display:none;">
+              <span class="pill-label" >🔖 Watchlist</span>
+            </label>
+            <label class="category-pill">
+              <input type="radio" name="status" value="watching" style="display:none;">
+              <span class="pill-label">▶ Watching</span>
+            </label>
+            <label class="category-pill">
+              <input type="radio" name="status" value="completed" style="display:none;">
+              <span class="pill-label">✓ Completed</span>
+            </label>
+          </div>
+
+          <!-- Optional details -->
+          <div class="row g-3 mb-4" style="max-width:420px;">
+            <div class="col-6">
+              <label class="form-label">EPISODES WATCHED</label>
+              <input type="number" name="watched_episodes" class="form-control"
+                     placeholder="0" min="0" max="{{ show.total }}"
+                     style="font-size:.9rem;">
+              <div class="form-text text-muted" style="font-size:.75rem;">
+                Leave blank for 0. Auto-fills if completed.
+              </div>
+            </div>
+            <div class="col-6">
+              <label class="form-label">YOUR RATING (optional)</label>
+              <input type="number" name="rating" class="form-control"
+                     placeholder="1–5" min="1" max="5" step="0.5"
+                     style="font-size:.9rem;">
+              <div class="form-text text-muted" style="font-size:.75rem;">Half steps allowed, e.g. 4.5</div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary px-4 py-2" style="font-size:.95rem;">
+            <i class="bi bi-plus-lg me-2"></i>Add to My List
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

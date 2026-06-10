@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Profile – Next Episode{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-4 mb-5">
+  <div style="width:80px; height:80px; border-radius:50%; background:var(--blue);
+              display:flex; align-items:center; justify-content:center;
+              font-size:2rem; color:#fff; font-weight:800; flex-shrink:0;
+              box-shadow:0 4px 16px rgba(37,99,235,.3);">
+    {{ session.username[0] | upper }}
+  </div>
+  <div>
+    <h2 style="font-weight:800; color:var(--text); margin-bottom:.1rem;">{{ session.username }}</h2>
+    <p class="text-muted" style="font-size:.88rem; margin:0;">Your watching stats at a glance</p>
+  </div>
+</div>
+
+<!-- Main stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--blue);">{{ stats.total }}</div>
+      <div class="text-muted mt-1" style="font-size:.72rem; font-weight:700; letter-spacing:.6px;">TOTAL SHOWS</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--green);">{{ stats.completed }}</div>
+      <div class="text-muted mt-1" style="font-size:.72rem; font-weight:700; letter-spacing:.6px;">COMPLETED</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-number" style="color:#f59e0b;">{{ stats.eps_watched }}</div>
+      <div class="text-muted mt-1" style="font-size:.72rem; font-weight:700; letter-spacing:.6px;">EPISODES WATCHED</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      {% if stats.avg_rating %}
+        <div class="stat-number" style="color:var(--yellow);">{{ stats.avg_rating }}</div>
+        <div class="d-flex justify-content-center mt-1">
+          {% for i in range(stats.avg_rating | int) %}<span class="star-filled" style="font-size:.85rem;">★</span>{% endfor %}
+          {% if stats.avg_rating % 1 %}<span class="star-filled" style="font-size:.85rem; opacity:.6;">½</span>{% endif %}
+        </div>
+      {% else %}
+        <div class="stat-number" style="color:var(--muted); font-size:1.4rem;">—</div>
+      {% endif %}
+      <div class="text-muted mt-1" style="font-size:.72rem; font-weight:700; letter-spacing:.6px;">AVG RATING</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- Category breakdown -->
+  <div class="col-md-5">
+    <div class="card p-3">
+      <div class="section-label mb-3">CATEGORY BREAKDOWN</div>
+      {% if stats.total > 0 %}
+        {% for label, count, color in [
+            ('Watching',  stats.watching,  'var(--blue)'),
+            ('Completed', stats.completed, 'var(--green)'),
+            ('Watchlist', stats.watchlist, 'var(--muted)')
+          ] %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1">
+            <span style="font-size:.88rem; font-weight:600; color:var(--text);">{{ label }}</span>
+            <span style="font-size:.82rem; color:var(--muted);">{{ count }} show{% if count != 1 %}s{% endif %}</span>
+          </div>
+          <div class="progress">
+            <div class="progress-bar" style="width:{{ ((count / stats.total) * 100) | round }}%; background:{{ color }};"></div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted" style="font-size:.88rem;">No shows added yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top rated shows -->
+  <div class="col-md-7">
+    <div class="card p-3">
+      <div class="section-label mb-3">YOUR TOP RATED SHOWS</div>
+      {% if stats.top_rated %}
+        <div class="d-flex flex-column gap-2">
+          {% for show in stats.top_rated %}
+          <div class="d-flex align-items-center gap-3 p-2"
+               style="background:var(--blue-light); border-radius:10px; border:1px solid var(--border);">
+            {% if show.image_url %}
+              <img src="{{ show.image_url }}" alt="{{ show.title }}"
+                   style="width:40px; height:56px; object-fit:cover; border-radius:5px; flex-shrink:0; border:1px solid var(--border);">
+            {% else %}
+              <div style="width:40px; height:56px; background:#dbeafe; border-radius:5px;
+                          display:flex; align-items:center; justify-content:center;
+                          color:var(--blue-mid); flex-shrink:0;">
+                <i class="bi bi-tv" style="font-size:.9rem;"></i>
+              </div>
+            {% endif %}
+            <div class="flex-grow-1">
+              <div style="font-weight:700; font-size:.92rem; color:var(--text);">{{ show.title }}</div>
+              <div style="font-size:.8rem;">
+                {% set full = show.rating | int %}
+                {% set half = (show.rating % 1) > 0 %}
+                {% for i in range(full) %}<span class="star-filled">★</span>{% endfor %}
+                {% if half %}<span class="star-filled" style="opacity:.7;">½</span>{% endif %}
+                {% for i in range(5 - full - (1 if half else 0)) %}<span class="star-empty">★</span>{% endfor %}
+                <span class="text-muted ms-1" style="font-size:.75rem;">{{ show.rating }}/5</span>
+              </div>
+            </div>
+            <span class="badge-status badge-{{ show.status }}" style="flex-shrink:0;">
+              {% if show.status == 'watching' %}▶ Watching
+              {% elif show.status == 'completed' %}✓ Done
+              {% else %}🔖 Later{% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted" style="font-size:.88rem;">
+          Rate some shows to see them here!
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Completion score -->
+{% if stats.total > 0 %}
+<div class="card mt-3 p-3">
+  <div class="section-label mb-2">COMPLETION SCORE</div>
+  <div class="d-flex align-items-center gap-3">
+    <div class="progress flex-grow-1" style="height:14px; border-radius:99px;">
+      {% set pct = ((stats.completed / stats.total) * 100) | round %}
+      <div class="progress-bar complete" style="width:{{ pct }}%; background:var(--green); border-radius:99px;"></div>
+    </div>
+    <span style="font-weight:700; font-size:1rem; color:var(--green); white-space:nowrap;">{{ pct }}% done</span>
+  </div>
+  <p class="text-muted mt-2 mb-0" style="font-size:.82rem;">
+    You've finished {{ stats.completed }} out of {{ stats.total }} shows on your list.
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}

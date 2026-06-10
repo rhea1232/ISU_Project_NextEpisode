@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Search – Next Episode{% endblock %}
+{% block content %}
+
+<div class="mb-4">
+  <h2 style="font-weight:800; color:var(--text); margin-bottom:.2rem;">Search Shows</h2>
+  <p class="text-muted" style="font-size:.88rem;">Find any TV show and add it to your list.</p>
+</div>
+
+<form method="GET" class="mb-4">
+  <div class="input-group" style="border-radius:10px; overflow:hidden; border:2px solid var(--border); transition:border-color .2s;"
+       onfocusin="this.style.borderColor='var(--blue)'" onfocusout="this.style.borderColor='var(--border)'">
+    <span class="input-group-text" style="background:#fff; border:none; color:var(--muted);">
+      <i class="bi bi-search"></i>
+    </span>
+    <input type="text" name="q" class="form-control form-control-lg"
+           placeholder="Try 'Breaking Bad', 'The Office', 'Game of Thrones'..."
+           value="{{ query }}" autofocus
+           style="border:none; border-radius:0; font-size:.95rem; box-shadow:none;">
+    <button type="submit" class="btn btn-primary px-4" style="border-radius:0 8px 8px 0;">
+      Search
+    </button>
+  </div>
+</form>
+
+{% if error %}
+<div class="text-center py-5">
+  <div style="font-size:3rem; opacity:.3; color:var(--muted); margin-bottom:.75rem;">
+    <i class="bi bi-search"></i>
+  </div>
+  <p class="text-muted">{{ error }}</p>
+</div>
+{% endif %}
+
+{% if results %}
+<div class="section-label">{{ results|length }} RESULT{% if results|length != 1 %}S{% endif %} FOR "{{ query | upper }}"</div>
+
+<div class="d-flex flex-column gap-2">
+  {% for show in results %}
+  <div class="show-row d-flex align-items-center gap-3">
+
+    {% if show.image %}
+      <img src="{{ show.image }}" alt="{{ show.title }}" class="show-poster" style="height:64px;">
+    {% else %}
+      <div class="poster-placeholder" style="height:64px;"><i class="bi bi-tv"></i></div>
+    {% endif %}
+
+    <div class="flex-grow-1 min-w-0">
+      <div class="fw-bold" style="font-size:.98rem; color:var(--text); margin-bottom:.2rem;">{{ show.title }}</div>
+      <div class="d-flex gap-2 align-items-center flex-wrap mb-1">
+        {% if show.year != 'N/A' %}
+          <span class="text-muted" style="font-size:.78rem;"><i class="bi bi-calendar3 me-1"></i>{{ show.year }}</span>
+        {% endif %}
+        {% if show.network != 'N/A' %}
+          <span class="text-muted" style="font-size:.78rem;">· {{ show.network }}</span>
+        {% endif %}
+        {% if show.status %}
+          <span style="font-size:.72rem; padding:2px 8px; border-radius:12px; font-weight:600;
+                       {% if show.status == 'Ended' %}background:#fef2f2; color:var(--red);
+                       {% else %}background:var(--green-bg); color:var(--green);{% endif %}">
+            {{ show.status }}
+          </span>
+        {% endif %}
+      </div>
+      {% if show.summary %}
+        <p class="text-muted mb-0" style="font-size:.78rem; line-height:1.5;
+           overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
+          {{ show.summary }}
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="flex-shrink-0">
+      <a href="{{ url_for('show_detail', show_id=show.id) }}" class="btn btn-primary btn-sm px-3">
+        <i class="bi bi-plus-lg me-1"></i>Add
+      </a>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
